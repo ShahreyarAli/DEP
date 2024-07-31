@@ -1,0 +1,113 @@
+From flask import Flask
+From flask_restful import Api, Resource, reqparse
+From flask_sqlalchemy import SQLAlchemy
+From flask_jwt_extended import JWTManager, create_access_token, jwt_required
+From werkzeug.security import generate_password_hash, check_password_hash
+Import os
+App = Flask(__name__)
+# Configuration
+App.config[‘SECRET_KEY’] = os.getenv(‘SECRET_KEY’, ‘mysecret’)
+App.config[‘SQLALCHEMY_DATABASE_URI’] = ‘sqlite:///data.db’
+App.config[‘SQLALCHEMY_TRACK_MODIFICATIONS’] = False
+App.config[‘JWT_SECRET_KEY’] = os.getenv(‘JWT_SECRET_KEY’, ‘myjwtsecret’)
+# Initialize extensions
+Db = SQLAlchemy(app)
+Api = Api(app)
+Jwt = JWTManager(app)
+# Models
+Class User(db.Model):
+ Id = db.Column(db.Integer, primary_key=True)
+ Username = db.Column(db.String(80), unique=True, nullable=False)
+ Password_hash = db.Column(db.String(128), nullable=False)
+ Def set_password(self, password):
+ Self.password_hash = generate_password_hash(password)
+ Def check_password(self, password):
+ Return check_password_hash(self.password_hash, password)
+Class Item(db.Model):
+ Id = db.Column(db.Integer, primary_key=True)
+ Name = db.Column(db.String(80), unique=True, nullable=False)
+ Price = db.Column(db.Float, nullable=False)
+# Create the database tables
+@app.before_first_request
+Def create_tables():
+ Db.create_all()
+# User Resource Parsers
+User_parser = reqparse.RequestParser()
+User_parser.add_argument(‘username’, type=str, required=True, help=”Username cannot 
+be blank!”)
+User_parser.add_argument(‘password’, type=str, required=True, help=”Password cannot 
+be blank!”)
+# Item Resource Parsers
+Item_parser = reqparse.RequestParser()
+Item_parser.add_argument(‘name’, type=str, required=True, help=”Name cannot be 
+blank!”)
+Item_parser.add_argument(‘price’, type=float, required=True, help=”Price cannot be 
+blank!”)
+# Resources
+Class UserRegister(Resource):
+ Def post(self):
+ Data = user_parser.parse_args()
+ If User.query.filter_by(username=data[‘username’]).first():
+ Return {‘message’: ‘User already exists’}, 400
+ 
+ User = User(username=data[‘username’])
+ User.set_password(data[‘password’])
+ Db.session.add(user)
+ Db.session.commit()
+ 
+ Return {‘message’: ‘User created successfully’}, 201
+Class UserLogin(Resource):
+ Def post(self):
+ Data = user_parser.parse_args()
+ User = User.query.filter_by(username=data[‘username’]).first()
+ 
+ If user and user.check_password(data[‘password’]):
+ Access_token = create_access_token(identity=user.id)
+ Return {‘access_token’: access_token}, 200
+ 
+ Return {‘message’: ‘Invalid credentials’}, 401
+Class ItemResource(Resource):
+ @jwt_required()
+ Def get(self, item_id):
+ Item = Item.query.get_or_404(item_id)
+ Return {‘id’: item.id, ‘name’: item.name, ‘price’: item.price}, 200
+ @jwt_required()
+ Def delete(self, item_id):
+ Item = Item.query.get_or_404(item_id)
+ Db.session.delete(item)
+ Db.session.commit()
+ Return {‘message’: ‘Item deleted’}, 200
+ @jwt_required()
+ Def put(self, item_id):
+ Data = item_parser.parse_args()
+ Item = Item.query.get_or_404(item_id)
+ 
+ Item.name = data[‘name’]
+ Item.price = data[‘price’]
+ Db.session.commit()
+ 
+ Return {‘id’: item.id, ‘name’: item.name, ‘price’: item.price}, 200
+Class ItemList(Resource):
+ @jwt_required()
+ Def get(self):
+ Items = Item.query.all()
+ Return [{‘id’: item.id, ‘name’: item.name, ‘price’: item.price} for item in items], 200
+ @jwt_required()
+ Def post(self):
+ Data = item_parser.parse_args()
+ If Item.query.filter_by(name=data[‘name’]).first():
+ Return {‘message’: ‘Item already exists’}, 400
+ 
+ Item = Item(name=data[‘name’], price=data[‘price’])
+ Db.session.add(item)
+ Db.session.commit()
+ 
+ Return {‘id’: item.id, ‘name’: item.name, ‘price’: item.price}, 201
+# Add resource routes
+Api.add_resource(UserRegister, ‘/register’)
+Api.add_resource(UserLogin, ‘/login’)
+Api.add_resource(ItemList, ‘/items’)
+Api.add_resource(ItemResource, ‘/items/<int:item_id>’)
+# Run the application
+If __name__ == ‘__main__’:
+ App.run(debug=True)
