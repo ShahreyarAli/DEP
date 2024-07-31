@@ -1,0 +1,38 @@
+CODE 1
+
+import matplotlib.pyplot as plt
+
+# Data
+fruits = ['Apples', 'Oranges']
+quantities = [10, 15]
+
+# Create a bar chart
+plt.bar(fruits, quantities)
+
+# Add a title and labels
+plt.title('Number of Fruits')
+plt.xlabel('Fruit')
+plt.ylabel('Quantity')
+
+# Show the plot
+plt.show()
+
+
+
+CODE 2
+
+import pandas as pd
+
+# Create a simple DataFrame manually
+data = {
+    'Name': ['Alice', 'Bob', 'Charlie', 'David', 'Eva'],
+    'Age': [24, 27, 22, 32, 29],
+    'City': ['New York', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix']
+}
+
+df = pd.DataFrame(data)
+
+# Display basic information
+print(df.head())        # Display the first few rows
+print(df.describe())    # Display summary statistics for numerical columns
+print(df.info())        # Display information about the DataFrame
